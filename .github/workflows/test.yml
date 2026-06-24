@@ -1,0 +1,34 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux runs the platform-independent suite; Windows additionally
+        # exercises the native SendInput text-injection path (regression guard
+        # for the 1.4.0-beta "access violation" typing crash).
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The suite is stdlib-only except glowgradient, which needs numpy.
+      - name: Install test deps
+        run: pip install pytest numpy
+
+      - name: Run tests
+        run: pytest -q

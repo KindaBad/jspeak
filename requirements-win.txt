@@ -1,0 +1,7 @@
+pynput
+sounddevice
+numpy
+pystray
+pillow
+PySide6-Essentials
+pyinstaller

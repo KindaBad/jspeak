@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for the ad-hoc-signed macOS build.
+
+  Without an Apple Developer ID we ad-hoc sign the whole PyInstaller bundle.
+  These entitlements are what make an unsigned/ad-hoc CPython bundle actually
+  load on Apple silicon:
+
+  - disable-library-validation: the main executable loads dylibs/frameworks
+    (Python.framework, the C extensions, pynput, sounddevice, …) that are not
+    signed with a matching Team ID. Without this, macOS refuses the load with
+    "library load disallowed by system policy".
+  - allow-unsigned-executable-memory / allow-jit: CPython, ctypes and cffi
+    allocate executable memory at runtime.
+  - allow-dyld-environment-variables: PyInstaller's bootloader sets DYLD_* to
+    locate the bundled framework.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+</dict>
+</plist>

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Launch the JSpeak settings GUI (uses the bundled venv python for GTK).
+cd "$(dirname "$0")"
+if [ -x ./.venv/bin/python ]; then
+  exec ./.venv/bin/python app.py --settings
+else
+  exec python3 app.py --settings
+fi

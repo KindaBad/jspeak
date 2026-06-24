@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=JSpeak Settings
+Comment=Configure JSpeak push-to-talk dictation
+Exec=jspeak-settings
+Icon=audio-input-microphone
+Terminal=false
+Categories=Utility;AudioVideo;Settings;
+Keywords=dictation;speech;voice;jspeak;

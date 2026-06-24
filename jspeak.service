@@ -1,0 +1,13 @@
+[Unit]
+Description=JSpeak push-to-talk dictation
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/jspeak/app.py
+Environment=YDOTOOL_SOCKET=%t/.ydotool_socket
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

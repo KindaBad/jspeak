@@ -1,0 +1,8 @@
+pynput
+sounddevice
+numpy
+pystray
+pillow
+pyobjc-framework-Cocoa
+pyobjc-framework-Quartz
+pyinstaller

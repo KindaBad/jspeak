@@ -1,0 +1,92 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    # Apple-silicon runner: produces an arm64 build (matches updater asset name).
+    runs-on: macos-14
+    env:
+      HAS_RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-mac.txt
+
+      - name: Build
+        run: pyinstaller --noconfirm jspeak-mac.spec
+
+      - name: Ad-hoc codesign the bundle
+        # PyInstaller leaves the bundled Python.framework / C-extensions signed
+        # with python.org's identity while ad-hoc signing the bootloader. On
+        # Apple silicon that mismatch makes the framework fail library
+        # validation on the user's machine ("library load disallowed by system
+        # policy"). Re-sign every Mach-O ad-hoc so the whole bundle shares one
+        # identity, and sign the main executable with entitlements that disable
+        # library validation. Done before the smoke test so we validate the
+        # exact artifact we ship.
+        run: |
+          set -euo pipefail
+          # 1. Re-sign every Mach-O ad-hoc, inside-out (strips foreign Team IDs).
+          #    Catch extensionless binaries too (e.g. Python.framework's `Python`
+          #    dylib) by testing each regular file with `file`, not just by
+          #    *.so / *.dylib extension.
+          while IFS= read -r -d '' f; do
+            if file -b "$f" | grep -q 'Mach-O'; then
+              codesign --force --timestamp=none --sign - "$f"
+            fi
+          done < <(find dist/jspeak -type f -print0)
+          # 2. Rebuild the seal on framework bundles over their now-ad-hoc
+          #    contents (e.g. Python.framework).
+          find dist/jspeak -name "*.framework" -type d -prune \
+            -exec codesign --force --deep --timestamp=none --sign - {} +
+          # 3. Main executable last, with entitlements disabling library validation.
+          codesign --force --timestamp=none \
+            --entitlements packaging/entitlements.mac.plist \
+            --sign - dist/jspeak/jspeak
+          # 4. Verify the seal is valid before we ship it.
+          codesign --verify --strict --verbose=2 dist/jspeak/jspeak
+
+      - name: Smoke test (binary launches)
+        run: ./dist/jspeak/jspeak --version
+
+      - name: Package
+        run: tar -czf dist/jspeak-macos-arm64.tar.gz -C dist jspeak
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jspeak-macos-arm64
+          path: dist/jspeak-macos-arm64.tar.gz
+          retention-days: 7
+
+      - name: Read version
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_TOKEN == 'true' }}
+        id: ver
+        run: echo "v=$(./dist/jspeak/jspeak --version | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Publish macOS build to public downloads repo
+        if: ${{ startsWith(github.ref, 'refs/tags/') && env.HAS_RELEASE_TOKEN == 'true' }}
+        env:
+          # Same fine-grained PAT as release.yml: Contents read/write on KindaBad/jspeak.
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          gh release create "v${{ steps.ver.outputs.v }}" \
+            --repo KindaBad/jspeak \
+            --title "JSpeak v${{ steps.ver.outputs.v }}" \
+            --notes "Automated build. See README for install." \
+            --prerelease \
+            dist/jspeak-macos-arm64.tar.gz || \
+          gh release upload "v${{ steps.ver.outputs.v }}" \
+            --repo KindaBad/jspeak \
+            dist/jspeak-macos-arm64.tar.gz --clobber

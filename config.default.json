@@ -1,0 +1,57 @@
+{
+  "groq_api_key": "",
+  "_groq_api_key_help": "Paste your own free Groq API key from https://console.groq.com/keys . Required.",
+  "mode": "quick",
+  "_mode_help": "quick = fastest/cheapest (turbo STT + 8B cleanup). smart = same fast STT + 70B cleanup. accurate = full whisper STT + 70B cleanup. max = full whisper STT + 120B cleanup (best quality, slowest).",
+  "language": "auto",
+  "_language_help": "auto = Whisper auto-detects. Or force an ISO-639-1 code: ar, he, en, es, fr, de, hi, ur, fa, ru, zh, ja.",
+  "type_method": "auto",
+  "_type_method_help": "auto/wtype = type letter-by-letter, any language incl. RTL. ydotool = type, ASCII/Latin only. clipboard = paste everything at once instantly (your clipboard is restored afterward).",
+  "uncensored": true,
+  "_uncensored_help": "Literature mode: transcribes profanity verbatim and never softens it.",
+  "append_space": true,
+  "_append_space_help": "Add a trailing space after dictated text so consecutive dictations flow.",
+  "cleanup_enabled": true,
+  "_cleanup_enabled_help": "true = LLM cleans up the raw transcript (removes fillers, fixes grammar). false = fastest: type the raw transcript with no LLM pass.",
+  "custom_instructions": "",
+  "_custom_instructions_help": "Optional personal style/formatting rules added to the cleanup pass, e.g. 'Use British spelling', 'Format lists as bullet points', 'Keep everything lowercase'. Tunes style only; it never makes JSpeak answer or translate the dictation. Only applies when cleanup is on.",
+  "max_tokens": 4096,
+  "_max_tokens_help": "Cap on the cleaned-text length. Raise for very long dictations.",
+  "key_delay_ms": 10,
+  "hotkey": {
+    "modifiers": ["ctrl", "shift"],
+    "key": null
+  },
+  "_hotkey_help": "Push-to-talk chord. modifiers = any of ctrl/shift/alt/super. key = optional single key (space, a-z, 0-9, f1-f12) or null.",
+  "activation": "hold",
+  "_activation_help": "hold = record while the chord is held. toggle = press once to start, again to stop.",
+  "min_hold_ms": 300,
+  "_min_hold_help": "How long the chord must be held before recording starts (hold mode).",
+  "min_record_ms": 350,
+  "_min_record_help": "Recordings shorter than this are discarded as accidental.",
+  "cancel_on_esc": true,
+  "_cancel_on_esc_help": "Press Esc while recording to throw the take away without typing anything.",
+  "trim_silence": true,
+  "_trim_silence_help": "Trim leading/trailing silence before upload (faster, cheaper). Conservative; keeps padding.",
+  "sample_rate": 16000,
+  "input_device": "",
+  "_input_device_help": "Microphone to record from, by name. Empty = system default. Pick from the list in Settings.",
+  "voice_commands": {
+    "enabled": true,
+    "custom": {}
+  },
+  "_voice_commands_help": "Spoken formatting. Built-in: 'new line', 'new paragraph', 'new bullet', and 'scratch that'/'delete that' (deletes the previous sentence). Add your own under custom as \"phrase\": \"replacement\".",
+  "overlay": {
+    "enabled": true,
+    "color": "#a855f7",
+    "max_alpha": 0.55,
+    "thickness_px": 110,
+    "reduce_motion": true,
+    "_help": "Screen-edge glow. reduce_motion=true (default) = static glow, 0% CPU. Set false for a breathing pulse."
+  },
+  "dictionary": {
+    "_help": "terms = names/words it mishears (bias recognition + keep spelling). replacements = explicit wrong->right fixes (case-insensitive, whole word).",
+    "terms": [],
+    "replacements": {}
+  }
+}
