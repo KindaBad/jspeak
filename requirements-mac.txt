@@ -1,4 +1,5 @@
 pynput
+certifi
 sounddevice
 numpy
 pystray

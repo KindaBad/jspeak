@@ -27,6 +27,27 @@ IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
 
 
+def _ensure_ca_bundle():
+    """A frozen PyInstaller build ships its own Python with no access to the OS
+    trust store, so every HTTPS call (Groq key test, transcription, auto-update)
+    fails TLS verification - notably on macOS. Point OpenSSL at certifi's bundled
+    CA file so the default SSL context can verify certificates. Harmless when run
+    from source (the system store already works); only sets the vars if unset."""
+    if os.environ.get("SSL_CERT_FILE"):
+        return
+    try:
+        import certifi
+        ca = certifi.where()
+    except Exception:
+        return
+    if ca and os.path.exists(ca):
+        os.environ["SSL_CERT_FILE"] = ca
+        os.environ.setdefault("REQUESTS_CA_BUNDLE", ca)
+
+
+_ensure_ca_bundle()
+
+
 def main():
     args = sys.argv[1:]
     role = args[0] if args else ""

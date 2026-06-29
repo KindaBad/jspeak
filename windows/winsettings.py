@@ -238,17 +238,19 @@ class Settings:
         ov = c.get("overlay", {})
         self.ov_enabled = self._check(card, "Enabled", ov.get("enabled", True))
         self.ov_color = ov.get("color", "#a855f7")
+        color_row = self._row(card, "Glow colour")
         self.color_btn = tk.Button(
-            card, text="  Colour  ", command=self._pick_color, relief="flat",
+            color_row, text="  Colour  ", command=self._pick_color, relief="flat",
             bg=self.ov_color, fg="#ffffff", activebackground=self.ov_color,
             font=(UI_FONT, 9, "bold"), cursor="hand2")
-        self._row(card, "Glow colour", self.color_btn)
+        self.color_btn.pack(side="right")
         self.ov_alpha = tk.DoubleVar(value=ov.get("max_alpha", 0.55))
-        scale = tk.Scale(card, from_=0.0, to=1.0, resolution=0.05,
+        alpha_row = self._row(card, "Intensity")
+        scale = tk.Scale(alpha_row, from_=0.0, to=1.0, resolution=0.05,
                          orient="horizontal", variable=self.ov_alpha,
                          bg=CARD, fg=FG, troughcolor=FIELD, highlightthickness=0,
                          activebackground=ACCENT, length=180)
-        self._row(card, "Intensity", scale)
+        scale.pack(side="right")
         self.ov_thick = self._spin(card, "Thickness (px)",
                                    ov.get("thickness_px", 110), 10, 400)
         self.ov_reduce = self._check(card, "Reduce motion (low-end mode)",
@@ -342,12 +344,16 @@ class Settings:
         inner.pack(fill="x", padx=14, pady=12)
         return inner
 
-    def _row(self, card, label, widget):
+    def _row(self, card, label):
+        """A label + right-aligned control row. Returns the row frame so callers
+        parent the control directly to it. (Packing a control into a row via
+        ``in_`` while its real parent is the card leaves the row stacked above
+        the control, which swallows its clicks on macOS - the control shows but
+        won't interact.)"""
         row = tk.Frame(card, bg=CARD)
         row.pack(fill="x", pady=(6, 0))
         tk.Label(row, text=label, bg=CARD, fg=FG,
                  font=(UI_FONT, 9)).pack(side="left")
-        widget.pack(in_=row, side="right")
         return row
 
     def _hint(self, card, text):
@@ -358,7 +364,8 @@ class Settings:
 
     def _option(self, card, label, pairs, value, on_change=None):
         var = tk.StringVar(value=_label_for(pairs, value))
-        om = ttk.OptionMenu(card, var, var.get(), *[p[1] for p in pairs],
+        row = self._row(card, label)
+        om = ttk.OptionMenu(row, var, var.get(), *[p[1] for p in pairs],
                             style="TMenubutton")
         try:
             menu = om["menu"]
@@ -366,17 +373,18 @@ class Settings:
                            activeforeground="#ffffff", relief="flat", bd=0)
         except Exception:
             pass
-        self._row(card, label, om)
+        om.pack(side="right")
         if on_change:
             var.trace_add("write", lambda *_: on_change())
         return (var, pairs)
 
     def _spin(self, card, label, value, lo, hi):
         var = tk.IntVar(value=int(value))
-        sp = tk.Spinbox(card, from_=lo, to=hi, textvariable=var, width=7,
+        row = self._row(card, label)
+        sp = tk.Spinbox(row, from_=lo, to=hi, textvariable=var, width=7,
                         bg=FIELD, fg=FG, insertbackground=FG, relief="flat",
                         buttonbackground=CARD, justify="right")
-        self._row(card, label, sp)
+        sp.pack(side="right")
         return var
 
     def _check(self, card, label, value):

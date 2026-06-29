@@ -12,14 +12,14 @@ from PyInstaller.utils.hooks import collect_all
 datas = [("config.default.json", ".")]
 binaries = []
 hiddenimports = ["pynput", "sounddevice", "numpy", "pystray", "PIL",
-                 "objc", "Foundation", "AppKit", "Quartz",
+                 "objc", "Foundation", "AppKit", "Quartz", "certifi",
                  "macmain", "macoverlay", "mactray", "winsettings",
                  "audio", "hotkeys", "notify", "glowgradient", "groq_core",
                  "appconfig", "jpaths", "updater", "version",
                  "history", "audiodevices", "clip"]
 
 for mod in ("sounddevice", "pynput", "pystray", "objc",
-            "Foundation", "AppKit", "Quartz"):
+            "Foundation", "AppKit", "Quartz", "certifi"):
     d, b, h = collect_all(mod)
     datas += d
     binaries += b
