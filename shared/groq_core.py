@@ -1,12 +1,21 @@
 """Platform-independent Groq pipeline: transcription, register-aware cleanup,
 the custom dictionary, and profanity/multilingual handling. Shared by the Linux
 and Windows daemons so the prompts and behavior stay identical everywhere."""
+import array
+import io
 import json
 import os
 import re
 import socket
 import time
+import wave
 from urllib import request as urlrequest, error as urlerror
+
+# Peak 16-bit amplitude below which a clip is treated as "no real speech". Full
+# scale is 32767; ~1% catches a muted/denied mic (which captures digital silence
+# or faint noise and makes Whisper hallucinate boilerplate like "Thank you." or
+# "Copyright ... all rights reserved.") without rejecting genuinely quiet speech.
+SILENCE_PEAK = 300
 
 GROQ_BASE = "https://api.groq.com/openai/v1"
 # Groq sits behind Cloudflare, which 403s (error 1010) the default
@@ -168,6 +177,21 @@ def _multipart(fields, file_field, filename, file_bytes, content_type):
     body += file_bytes + crlf
     body += b"--" + boundary.encode() + b"--" + crlf
     return bytes(body), f"multipart/form-data; boundary={boundary}"
+
+
+def wav_peak(wav_bytes):
+    """Loudest absolute 16-bit sample in a mono WAV, or None if it can't be read.
+    Used to detect a silent/dead microphone before spending a Whisper call on it."""
+    try:
+        with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+            if w.getsampwidth() != 2:
+                return None
+            frames = w.readframes(w.getnframes())
+        samples = array.array("h")
+        samples.frombytes(frames)
+        return max((abs(s) for s in samples), default=0)
+    except Exception:
+        return None
 
 
 def transcribe(api_key, model, wav_bytes, prompt="", language=""):
@@ -343,6 +367,18 @@ def transcribe_and_clean(cfg, wav_bytes, log=print):
     if nothing was heard. Raises on network/API errors so the caller can flash an
     error and notify why."""
     api_key = cfg["groq_api_key"]
+
+    # A muted, unplugged, or permission-denied mic records digital silence/faint
+    # noise that Whisper "transcribes" as confident boilerplate ("Thank you.",
+    # "Copyright ... all rights reserved."). Catch that here so we surface the
+    # real problem instead of typing hallucinations into the user's document.
+    peak = wav_peak(wav_bytes)
+    if peak is not None and peak < SILENCE_PEAK:
+        log(f"  audio is near-silent (peak={peak}); not transcribing")
+        raise GroqError(
+            "No audio captured - check the microphone is selected, unmuted, "
+            "and that JSpeak has microphone permission.", kind="mic")
+
     stt_model, llm_model = MODES[cfg.get("mode", "quick")]
     dictionary = cfg.get("dictionary", {}) or {}
     terms = [t for t in dictionary.get("terms", []) if t]

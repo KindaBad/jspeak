@@ -1,9 +1,26 @@
+import array
+import io
 import socket
+import wave
 from urllib import error as urlerror
 
 import pytest
 
 import groq_core as gc
+
+
+def _wav(amplitude, ms=500, rate=16000):
+    """A mono 16-bit WAV whose samples alternate +/-amplitude."""
+    n = int(rate * ms / 1000)
+    samples = array.array("h", [amplitude if i % 2 else -amplitude
+                                for i in range(n)])
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(samples.tobytes())
+    return buf.getvalue()
 
 
 # ---- apply_replacements ----
@@ -178,3 +195,33 @@ def test_is_hallucination_keeps_real_dictation():
     # the marker inside a long genuine sentence is not treated as a credit
     long = "thanks for watching the demo, now let's walk through the whole codebase together"
     assert gc.is_hallucination(long) is False
+
+
+# ---- wav_peak / silent-mic gate ----
+def test_wav_peak_reads_amplitude():
+    assert gc.wav_peak(_wav(5000)) == 5000
+    assert gc.wav_peak(_wav(0)) == 0
+
+
+def test_wav_peak_bad_bytes_returns_none():
+    assert gc.wav_peak(b"not a wav") is None
+
+
+def test_pipeline_rejects_silent_audio_before_transcribing(monkeypatch):
+    # A dead/muted mic must raise a clear mic error, never reach Whisper, and
+    # never type hallucinated boilerplate.
+    def _boom(*a, **k):
+        raise AssertionError("transcribe must not be called on silent audio")
+    monkeypatch.setattr(gc, "transcribe", _boom)
+    cfg = {"groq_api_key": "k", "mode": "quick"}
+    with pytest.raises(gc.GroqError) as ei:
+        gc.transcribe_and_clean(cfg, _wav(10), log=lambda *_: None)
+    assert ei.value.kind == "mic"
+
+
+def test_pipeline_allows_audible_audio(monkeypatch):
+    monkeypatch.setattr(gc, "transcribe", lambda *a, **k: "hello world")
+    monkeypatch.setattr(gc, "cleanup", lambda *a, **k: "hello world")
+    cfg = {"groq_api_key": "k", "mode": "quick", "cleanup_enabled": True}
+    out = gc.transcribe_and_clean(cfg, _wav(8000), log=lambda *_: None)
+    assert "hello world" in out

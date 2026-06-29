@@ -26,5 +26,10 @@
     <true/>
     <key>com.apple.security.cs.allow-dyld-environment-variables</key>
     <true/>
+    <!-- Microphone capture (sounddevice/PortAudio). Without audio-input access
+         the OS can hand the recorder digital silence instead of the user's
+         voice, which Whisper then "transcribes" as hallucinated boilerplate. -->
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
 </dict>
 </plist>
