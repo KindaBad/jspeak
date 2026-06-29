@@ -32,6 +32,11 @@ def _device_pairs(current=""):
         pairs.append((current, f"{current} (not connected)"))
     return pairs
 
+# The native UI font per platform so the window matches the rest of the OS
+# (this Tk window is shared by Windows and macOS). Segoe UI is Windows-only and
+# falls back to an ugly default on macOS, so pick Helvetica Neue there.
+UI_FONT = "Helvetica Neue" if sys.platform == "darwin" else "Segoe UI"
+
 # ---- palette (matches settings.py CSS) ----
 BG = "#0e0c15"
 CARD = "#181523"
@@ -94,10 +99,10 @@ class Settings:
         header = tk.Frame(self.root, bg=BG)
         header.pack(fill="x", padx=22, pady=(18, 2))
         tk.Label(header, text="JSpeak", bg=BG, fg="#ffffff",
-                 font=("Segoe UI", 20, "bold")).pack(anchor="w")
+                 font=(UI_FONT, 20, "bold")).pack(anchor="w")
         tk.Label(header, text=f"Push-to-talk dictation  ·  hold Ctrl+Shift  ·  "
                  f"v{version.__version__}", bg=BG, fg=SUB,
-                 font=("Segoe UI", 9)).pack(anchor="w")
+                 font=(UI_FONT, 9)).pack(anchor="w")
         tk.Frame(header, bg=BORDER, height=1).pack(fill="x", pady=(14, 0))
 
         # ---- tabbed notebook -------------------------------------------
@@ -136,10 +141,10 @@ class Settings:
                        command=lambda: self.api.config(
                            show="" if self._show.get() else "*"),
                        bg=CARD, fg=SUB, selectcolor=FIELD, activebackground=CARD,
-                       activeforeground=FG, font=("Segoe UI", 9)).pack(
+                       activeforeground=FG, font=(UI_FONT, 9)).pack(
             side="left", padx=(8, 0))
         tk.Button(row, text="Test", command=self._test_key, relief="flat",
-                  bg=FIELD, fg=FG, activebackground=BORDER, font=("Segoe UI", 9),
+                  bg=FIELD, fg=FG, activebackground=BORDER, font=(UI_FONT, 9),
                   cursor="hand2").pack(side="left", padx=(8, 0))
         self._hint(card, "Get a free key at console.groq.com/keys - it stays on "
                          "your machine and is never shared. Use Test to check it.")
@@ -201,13 +206,13 @@ class Settings:
         mod_row = tk.Frame(card, bg=CARD)
         mod_row.pack(fill="x", pady=(2, 4))
         tk.Label(mod_row, text="Modifiers", bg=CARD, fg=FG,
-                 font=("Segoe UI", 9)).pack(side="left")
+                 font=(UI_FONT, 9)).pack(side="left")
         for m in hotkeys.MODIFIERS:
             var = tk.BooleanVar(value=m in spec["mods"])
             self.mod_vars[m] = var
             tk.Checkbutton(mod_row, text=m.capitalize(), variable=var, bg=CARD,
                            fg=FG, selectcolor=FIELD, activebackground=CARD,
-                           activeforeground=FG, font=("Segoe UI", 9)).pack(
+                           activeforeground=FG, font=(UI_FONT, 9)).pack(
                 side="left", padx=(8, 0))
         key_pairs = [("", "None")] + [
             (k, k.upper() if len(k) == 1 else k.capitalize())
@@ -236,7 +241,7 @@ class Settings:
         self.color_btn = tk.Button(
             card, text="  Colour  ", command=self._pick_color, relief="flat",
             bg=self.ov_color, fg="#ffffff", activebackground=self.ov_color,
-            font=("Segoe UI", 9, "bold"), cursor="hand2")
+            font=(UI_FONT, 9, "bold"), cursor="hand2")
         self._row(card, "Glow colour", self.color_btn)
         self.ov_alpha = tk.DoubleVar(value=ov.get("max_alpha", 0.55))
         scale = tk.Scale(card, from_=0.0, to=1.0, resolution=0.05,
@@ -252,7 +257,7 @@ class Settings:
                          "best on weak hardware. Off: gentle breathing pulse.")
         prev = tk.Button(card, text="Preview glow", command=self._preview,
                          relief="flat", bg=FIELD, fg=FG, activebackground=BORDER,
-                         font=("Segoe UI", 9), cursor="hand2")
+                         font=(UI_FONT, 9), cursor="hand2")
         prev.pack(anchor="w", pady=(6, 0))
         self._hint(card, "Previews the current (unsaved) colour, intensity and "
                          "thickness for a couple of seconds.")
@@ -261,14 +266,14 @@ class Settings:
         footer = tk.Frame(self.root, bg=BG)
         footer.pack(fill="x", side="bottom")
         self.status = tk.Label(footer, text="", bg=BG, fg=OK,
-                               font=("Segoe UI", 9))
+                               font=(UI_FONT, 9))
         self.status.pack(side="left", padx=22, pady=12)
         tk.Button(footer, text="Save & Apply", command=self.save, bg=ACCENT,
-                  fg="#ffffff", relief="flat", font=("Segoe UI", 10, "bold"),
+                  fg="#ffffff", relief="flat", font=(UI_FONT, 10, "bold"),
                   padx=18, pady=6, activebackground=ACCENT_HI,
                   cursor="hand2").pack(side="right", padx=(0, 22), pady=12)
         tk.Button(footer, text="Close", command=self._close, bg=FIELD, fg=FG,
-                  relief="flat", font=("Segoe UI", 10), padx=14, pady=6,
+                  relief="flat", font=(UI_FONT, 10), padx=14, pady=6,
                   activebackground=BORDER, cursor="hand2").pack(
             side="right", padx=(0, 8), pady=12)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
@@ -290,7 +295,7 @@ class Settings:
                         tabmargins=[22, 12, 22, 0])
         style.configure("JS.TNotebook.Tab", background=FIELD, foreground=SUB,
                         padding=[18, 8], borderwidth=0,
-                        font=("Segoe UI", 10, "bold"))
+                        font=(UI_FONT, 10, "bold"))
         style.map("JS.TNotebook.Tab",
                   background=[("selected", ACCENT), ("active", BORDER)],
                   foreground=[("selected", "#ffffff"), ("active", FG)])
@@ -329,7 +334,7 @@ class Settings:
     # ---- widget helpers ----
     def _card(self, parent, title):
         tk.Label(parent, text=title, bg=BG, fg=SECTION,
-                 font=("Segoe UI", 9, "bold")).pack(anchor="w", pady=(14, 2))
+                 font=(UI_FONT, 9, "bold")).pack(anchor="w", pady=(14, 2))
         card = tk.Frame(parent, bg=CARD, highlightbackground=BORDER,
                         highlightthickness=1)
         card.pack(fill="x")
@@ -341,12 +346,12 @@ class Settings:
         row = tk.Frame(card, bg=CARD)
         row.pack(fill="x", pady=(6, 0))
         tk.Label(row, text=label, bg=CARD, fg=FG,
-                 font=("Segoe UI", 9)).pack(side="left")
+                 font=(UI_FONT, 9)).pack(side="left")
         widget.pack(in_=row, side="right")
         return row
 
     def _hint(self, card, text):
-        h = tk.Label(card, text=text, bg=CARD, fg=HINT, font=("Segoe UI", 8),
+        h = tk.Label(card, text=text, bg=CARD, fg=HINT, font=(UI_FONT, 8),
                      justify="left", wraplength=440, anchor="w")
         h.pack(fill="x", anchor="w", pady=(4, 0))
         return h
@@ -378,14 +383,14 @@ class Settings:
         var = tk.BooleanVar(value=bool(value))
         tk.Checkbutton(card, text=label, variable=var, bg=CARD, fg=FG,
                        selectcolor=FIELD, activebackground=CARD,
-                       activeforeground=FG, font=("Segoe UI", 9),
+                       activeforeground=FG, font=(UI_FONT, 9),
                        anchor="w").pack(fill="x", anchor="w", pady=(6, 0))
         return var
 
     def _textarea(self, card, text):
         t = tk.Text(card, height=3, bg=FIELD, fg=FG, insertbackground=FG,
                     relief="flat", highlightbackground=BORDER,
-                    highlightthickness=1, font=("Segoe UI", 9), wrap="word")
+                    highlightthickness=1, font=(UI_FONT, 9), wrap="word")
         t.pack(fill="x", pady=(2, 6))
         t.insert("1.0", text)
         return t

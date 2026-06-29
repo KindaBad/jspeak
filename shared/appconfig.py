@@ -44,7 +44,7 @@ def validate(cfg):
     cfg["max_tokens"] = _clamp(cfg.get("max_tokens", 4096), 256, 32768, 4096)
     for flag, dflt in (("uncensored", True), ("append_space", True),
                        ("cleanup_enabled", True), ("trim_silence", True),
-                       ("cancel_on_esc", True)):
+                       ("cancel_on_esc", True), ("always_record", False)):
         cfg[flag] = bool(cfg.get(flag, dflt))
     if cfg.get("activation") not in ("hold", "toggle"):
         cfg["activation"] = "hold"

@@ -181,6 +181,18 @@ class Overlay:
 # ----------------------------------------------------------------------------
 # Recording (arecord raw PCM -> wrap as WAV, robust against kill timing)
 # ----------------------------------------------------------------------------
+def pcm_to_wav(raw, rate):
+    """Wrap 16-bit mono PCM bytes as an in-memory WAV file."""
+    buf = tempfile.SpooledTemporaryFile()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(raw)
+    buf.seek(0)
+    return buf.read()
+
+
 class Recorder:
     def __init__(self, rate, trim=True, device=""):
         self.rate = rate
@@ -237,14 +249,128 @@ class Recorder:
         if self.trim:
             raw = audio.trim_silence(raw, self.rate)
         ms = int(len(raw) / 2 / self.rate * 1000)
-        buf = tempfile.SpooledTemporaryFile()
-        with wave.open(buf, "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(self.rate)
-            w.writeframes(raw)
-        buf.seek(0)
-        return buf.read(), ms
+        return pcm_to_wav(raw, self.rate), ms
+
+
+# ----------------------------------------------------------------------------
+# Always-on recording: arecord streams continuously into a rolling memory
+# buffer; a press just marks an offset and a release slices that segment out.
+# This removes the per-take arecord start-up lag (lower latency) and lets us
+# include a little audio captured *before* the keypress so onsets never clip.
+# Drop-in compatible with Recorder (start/stop/discard) plus begin/close for
+# the persistent stream's lifecycle.
+# ----------------------------------------------------------------------------
+class ContinuousRecorder:
+    PREROLL_MS = 200            # audio kept from just before the keypress
+    MAX_BUFFER_SEC = 60         # cap rolling buffer so memory stays bounded
+    READ_BYTES = 2048           # ~64ms granularity at 16kHz mono 16-bit
+
+    def __init__(self, rate, trim=True, device=""):
+        self.rate = rate
+        self.trim = trim
+        self.device = device or ""
+        self.proc = None
+        self._buf = bytearray()
+        self._total = 0          # absolute bytes ever read from the stream
+        self._mark = None        # absolute offset where the current take began
+        self._lock = threading.Lock()
+        self._running = False
+        self._thread = None
+        self._max_bytes = int(self.MAX_BUFFER_SEC * rate * 2)
+        self._preroll_bytes = int(self.PREROLL_MS / 1000 * rate) * 2
+
+    # -- persistent stream lifecycle ---------------------------------------
+    def begin(self):
+        if self._running:
+            return
+        self._running = True
+        self._thread = threading.Thread(target=self._reader, daemon=True)
+        self._thread.start()
+
+    def close(self):
+        self._running = False
+        if self.proc and self.proc.poll() is None:
+            try:
+                self.proc.terminate()
+            except Exception:
+                pass
+        if self._thread:
+            self._thread.join(timeout=2)
+
+    def _spawn(self):
+        cmd = ["arecord", "-q", "-f", "S16_LE", "-c", "1",
+               "-r", str(self.rate), "-t", "raw"]
+        if self.device:
+            cmd += ["-D", self.device]
+        try:
+            return subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            log(f"continuous recorder: arecord failed: {e}")
+            return None
+
+    def _reader(self):
+        while self._running:
+            proc = self._spawn()
+            if not proc:
+                time.sleep(0.5)
+                continue
+            self.proc = proc
+            try:
+                while self._running:
+                    chunk = proc.stdout.read(self.READ_BYTES)
+                    if not chunk:
+                        break                    # arecord exited; respawn below
+                    with self._lock:
+                        self._buf += chunk
+                        self._total += len(chunk)
+                        self._trim_locked()
+            except Exception:
+                pass
+            finally:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+            if self._running:
+                time.sleep(0.3)                  # brief backoff before respawn
+
+    def _trim_locked(self):
+        """Drop the oldest audio beyond the cap, but never past an active mark."""
+        excess = len(self._buf) - self._max_bytes
+        if excess <= 0:
+            return
+        if self._mark is not None:
+            buf_start = self._total - len(self._buf)
+            mark_idx = self._mark - buf_start
+            excess = min(excess, max(0, mark_idx))
+        if excess > 0:
+            del self._buf[:excess]
+
+    # -- take interface (mirrors Recorder) ---------------------------------
+    def start(self):
+        with self._lock:
+            preroll = min(len(self._buf), self._preroll_bytes)
+            self._mark = self._total - preroll
+
+    def discard(self):
+        with self._lock:
+            self._mark = None
+
+    def stop(self):
+        with self._lock:
+            if self._mark is None:
+                return None, 0
+            buf_start = self._total - len(self._buf)
+            start_idx = max(0, self._mark - buf_start)
+            raw = bytes(self._buf[start_idx:])
+            self._mark = None
+        if not raw:
+            return None, 0
+        if self.trim:
+            raw = audio.trim_silence(raw, self.rate)
+        ms = int(len(raw) / 2 / self.rate * 1000)
+        return pcm_to_wav(raw, self.rate), ms
 
 
 # ----------------------------------------------------------------------------
@@ -349,9 +475,11 @@ class KeyListener:
         self.armed_at = 0.0
         self.rec_started_at = 0.0
         self._was_satisfied = False
-        self.recorder = Recorder(cfg.get("sample_rate", 16000),
-                                 trim=cfg.get("trim_silence", True),
-                                 device=cfg.get("input_device", ""))
+        self.always_record = cfg.get("always_record", False)
+        recorder_cls = ContinuousRecorder if self.always_record else Recorder
+        self.recorder = recorder_cls(cfg.get("sample_rate", 16000),
+                                     trim=cfg.get("trim_silence", True),
+                                     device=cfg.get("input_device", ""))
         self._last_scan = 0.0
 
     # -- device management --------------------------------------------------
@@ -468,11 +596,21 @@ class KeyListener:
         if not self.devices:
             log("No keyboards to listen on. Are you in the 'input' group?")
             sys.exit(1)
+        if self.always_record:
+            self.recorder.begin()
+            log("always-on recording enabled (continuous mic capture)")
         log(f"JSpeak ready. mode={self.cfg['mode']}  "
             f"models={MODES[self.cfg['mode']]}")
         verb = "Press" if self.toggle else "Hold"
         log(f"{verb} {self.chord_label} and speak."
             + ("  (Esc cancels)" if self.cancel_on_esc else ""))
+        try:
+            self._loop()
+        finally:
+            if self.always_record:
+                self.recorder.close()
+
+    def _loop(self):
         while True:
             timeout = None
             if self.state == ARMED:

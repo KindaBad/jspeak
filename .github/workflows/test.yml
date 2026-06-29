@@ -16,8 +16,9 @@ jobs:
       matrix:
         # Linux runs the platform-independent suite; Windows additionally
         # exercises the native SendInput text-injection path (regression guard
-        # for the 1.4.0-beta "access violation" typing crash).
-        os: [ubuntu-latest, windows-latest]
+        # for the 1.4.0-beta "access violation" typing crash); macOS exercises
+        # the Cmd+V/per-letter typing path and keeps macmain importable.
+        os: [ubuntu-latest, windows-latest, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

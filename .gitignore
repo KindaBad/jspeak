@@ -6,3 +6,5 @@ __pycache__/
 # personal config containing the API key — never commit
 config.json
 sounds/
+# local marketing/ad project — not part of the app
+jspeak-ad/

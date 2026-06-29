@@ -272,6 +272,13 @@ class Settings(Gtk.Window):
         self.trim_silence.set_active(self.cfg.get("trim_silence", True))
         self.trim_silence.set_halign(Gtk.Align.START)
         self._row(card, "Trim silence before upload", self.trim_silence)
+        self.always_record = Gtk.Switch()
+        self.always_record.set_active(self.cfg.get("always_record", False))
+        self.always_record.set_halign(Gtk.Align.START)
+        self._row(card, "Always-on recording (lower latency)", self.always_record)
+        self._hint(card, "Keep the mic capturing continuously and only upload the "
+                         "held segment. Removes the start-up lag on each press; "
+                         "holds the mic open the whole time. Restart to apply.")
         self.max_tokens = self._spin(256, 16384, 256, self.cfg.get("max_tokens", 4096))
         self._row(card, "Max output length (tokens)", self.max_tokens)
         self._hint(card, "Custom cleanup instructions - your own style/formatting "
@@ -511,6 +518,7 @@ class Settings(Gtk.Window):
         cfg["input_device"] = self.input_device.get_active_id() or ""
         cfg["cleanup_enabled"] = self.cleanup_enabled.get_active()
         cfg["trim_silence"] = self.trim_silence.get_active()
+        cfg["always_record"] = self.always_record.get_active()
         cfg["max_tokens"] = int(self.max_tokens.get_value())
         cfg["custom_instructions"] = self._buf_text(self.custom_instructions).strip()
         cfg.setdefault("voice_commands", {})

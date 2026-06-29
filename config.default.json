@@ -33,6 +33,8 @@
   "_cancel_on_esc_help": "Press Esc while recording to throw the take away without typing anything.",
   "trim_silence": true,
   "_trim_silence_help": "Trim leading/trailing silence before upload (faster, cheaper). Conservative; keeps padding.",
+  "always_record": false,
+  "_always_record_help": "Keep the microphone capturing continuously into a memory buffer and only slice/upload the held segment. Removes the recorder start-up lag on each press (lower latency) at the cost of holding the mic open the whole time. Linux only.",
   "sample_rate": 16000,
   "input_device": "",
   "_input_device_help": "Microphone to record from, by name. Empty = system default. Pick from the list in Settings.",
